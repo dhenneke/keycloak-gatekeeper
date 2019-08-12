@@ -613,6 +613,13 @@ func (r *oauthProxy) createUpstreamProxy(upstream *url.URL) error {
 	// and for refreshed cookies (htts://github.com/keycloak/keycloak-gatekeeper/pulls/456])
 	proxy.KeepDestinationHeaders = true
 	proxy.Logger = httplog.New(ioutil.Discard, "", 0)
+	proxy.OnResponse().DoFunc(func(r *http.Response, ctx *goproxy.ProxyCtx)*http.Response{
+		scope := ctx.Req.Context().Value(contextScopeName).(*RequestScope)
+		for _, val := range scope.SetCookieHeaders {
+			r.Header.Add("Set-Cookie", val)
+		}
+		return r
+	})
 	r.upstream = proxy
 
 	// update the tls configuration of the reverse proxy

@@ -385,6 +385,7 @@ type RequestScope struct {
 	AccessDenied bool
 	// Identity is the user Identity of the request
 	Identity *userContext
+	SetCookieHeaders []string
 }
 
 // storage is used to hold the offline refresh token, assuming you don't want to use

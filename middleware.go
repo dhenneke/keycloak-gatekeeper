@@ -51,7 +51,9 @@ func entrypointMiddleware(next http.Handler) http.Handler {
 		req.URL.RawPath = req.URL.Path
 
 		// @step: create a context for the request
-		scope := &RequestScope{}
+		scope := &RequestScope{
+			SetCookieHeaders: []string{},
+		}
 		resp := middleware.NewWrapResponseWriter(w, 1)
 		start := time.Now()
 		next.ServeHTTP(resp, req.WithContext(context.WithValue(req.Context(), contextScopeName, scope)))

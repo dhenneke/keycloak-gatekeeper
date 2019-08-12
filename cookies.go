@@ -33,7 +33,7 @@ const (
 )
 
 // dropCookie drops a cookie into the response
-func (r *oauthProxy) dropCookie(w http.ResponseWriter, host, name, value string, duration time.Duration) {
+func (r *oauthProxy) dropCookie(w http.ResponseWriter, host, name, value string, duration time.Duration) string {
 	// step: default to the host header, else the config domain
 	domain := ""
 	if r.config.CookieDomain != "" {
@@ -63,6 +63,9 @@ func (r *oauthProxy) dropCookie(w http.ResponseWriter, host, name, value string,
 	}
 
 	http.SetCookie(w, cookie)
+
+	// Return the cookie to be saved
+	return cookie.String()
 }
 
 // maxCookieChunkSize calculates max cookie chunk size, which can be used for cookie value
@@ -95,7 +98,11 @@ func (r *oauthProxy) getMaxCookieChunkLength(req *http.Request, cookieName strin
 func (r *oauthProxy) dropCookieWithChunks(req *http.Request, w http.ResponseWriter, name, value string, duration time.Duration) {
 	maxCookieChunkLength := r.getMaxCookieChunkLength(req, name)
 	if len(value) <= maxCookieChunkLength {
-		r.dropCookie(w, req.Host, name, value, duration)
+		c := r.dropCookie(w, req.Host, name, value, duration)
+		if c != "" {
+			scope := req.Context().Value(contextScopeName).(*RequestScope)
+			scope.SetCookieHeaders = append(scope.SetCookieHeaders, c)
+		}
 	} else {
 		// write divided cookies because payload is too long for single cookie
 		r.dropCookie(w, req.Host, name, value[0:maxCookieChunkLength], duration)
