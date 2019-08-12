@@ -539,6 +539,53 @@ func TestNoProxyingRequests(t *testing.T) {
 	newFakeProxy(c).RunTests(t, requests)
 }
 
+func TestChangingTokenRoles(t *testing.T) {
+	c := newFakeKeycloakConfig()
+	c.EnableRefreshTokens = true
+	c.EncryptionKey = testEncryptionKey
+
+	// delay after the first request to let it expire
+	fn := func(no int, req *resty.Request, resp *resty.Response) {
+		if no == 0 {
+			<-time.After(1000 * time.Millisecond)
+		}
+	}
+
+	c.Resources = []*Resource{
+		{
+			URL:     "/*",
+			Methods: allHTTPMethods,
+			Roles:   []string{"roleA"},
+		},
+	}
+	requests := []fakeRequest{
+		{
+			// This request will receive a token with role "roleA"
+			URI:           "/test",
+			HasLogin:      true,
+			Redirects:     true,
+			OnResponse:    fn,
+			ExpectedProxy: true,
+			ExpectedCode:  http.StatusOK,
+		},
+		{
+			// This request wil receive a token from the refresh_token token will not receive any role
+			URI:           "/test",
+			Redirects:     true,
+			ExpectedProxy: false,
+			ExpectedCode:  http.StatusForbidden,
+		},
+	}
+
+	p := newFakeProxy(c)
+	// our tokens should expire in 1 second
+	p.idp.setTokenExpiration(1000 * time.Millisecond)
+	// We want to give the first issued token "roleA" and all later ones no role
+	p.idp.clientRolesList = []string{"roleA"}
+
+	p.RunTests(t, requests)
+}
+
 const testAdminURI = "/admin/test"
 
 func TestStrangeAdminRequests(t *testing.T) {

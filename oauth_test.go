@@ -36,11 +36,12 @@ import (
 )
 
 type fakeAuthServer struct {
-	location   *url.URL
-	key        jose.JWK
-	signer     jose.Signer
-	server     *httptest.Server
-	expiration time.Duration
+	location        *url.URL
+	key             jose.JWK
+	signer          jose.Signer
+	server          *httptest.Server
+	expiration      time.Duration
+	clientRolesList []string
 }
 
 const fakePrivateKey = `
@@ -232,6 +233,12 @@ func (r *fakeAuthServer) tokenHandler(w http.ResponseWriter, req *http.Request) 
 	expires := time.Now().Add(r.expiration)
 	unsigned := newTestToken(r.getLocation())
 	unsigned.setExpiration(expires)
+
+	// add a configured role and shift the list
+	if r.clientRolesList != nil && len(r.clientRolesList) > 0 {
+		unsigned.addRealmRoles(r.clientRolesList[0:1])
+		r.clientRolesList = r.clientRolesList[1:]
+	}
 
 	// sign the token with the private key
 	token, err := jose.NewSignedJWT(unsigned.claims, r.signer)
