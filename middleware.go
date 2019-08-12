@@ -103,15 +103,15 @@ func (r *oauthProxy) authenticationMiddleware() func(http.Handler) http.Handler 
 		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 			clientIP := req.RemoteAddr
 			// grab the user identity from the request
-			user, err := r.getIdentity(req)
+			user, err := r.getIdentityFromRequest(req)
 			if err != nil {
 				r.log.Error("no session found in request, redirecting for authorization", zap.Error(err))
 				next.ServeHTTP(w, req.WithContext(r.redirectToAuthorization(w, req)))
 				return
 			}
+
 			// create the request scope
 			scope := req.Context().Value(contextScopeName).(*RequestScope)
-			scope.Identity = user
 			ctx := context.WithValue(req.Context(), contextScopeName, scope)
 
 			// step: skip if we are running skip-token-verification
@@ -211,6 +211,15 @@ func (r *oauthProxy) authenticationMiddleware() func(http.Handler) http.Handler 
 						zap.Duration("expires_in", accessExpiresIn))
 
 					accessToken := token.Encode()
+
+					// we received a new token so we need to update our user
+					user, err = r.getIdentity(accessToken, true)
+					if err != nil {
+						r.log.Error("no session found in request, redirecting for authorization", zap.Error(err))
+						next.ServeHTTP(w, req.WithContext(r.redirectToAuthorization(w, req)))
+						return
+					}
+
 					if r.config.EnableEncryptedToken || r.config.ForceEncryptedCookie {
 						if accessToken, err = encodeText(accessToken, r.config.EncryptionKey); err != nil {
 							r.log.Error("unable to encode the access token", zap.Error(err))
@@ -245,11 +254,12 @@ func (r *oauthProxy) authenticationMiddleware() func(http.Handler) http.Handler 
 							}
 						}(user.token, token, encrypted)
 					}
-					// update the with the new access token and inject into the context
-					user.token = token
-					ctx = context.WithValue(req.Context(), contextScopeName, scope)
 				}
 			}
+
+			// set the user as identity and inject it into the context
+			scope.Identity = user
+			ctx = context.WithValue(req.Context(), contextScopeName, scope)
 
 			next.ServeHTTP(w, req.WithContext(ctx))
 		})

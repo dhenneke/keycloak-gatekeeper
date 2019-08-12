@@ -25,19 +25,27 @@ import (
 	"go.uber.org/zap"
 )
 
-// getIdentity retrieves the user identity from a request, either from a session cookie or a bearer token
-func (r *oauthProxy) getIdentity(req *http.Request) (*userContext, error) {
-	var isBearer bool
+// getIdentityFromRequest retrieves the user identity from a request, either from a session cookie or a bearer token
+func (r *oauthProxy) getIdentityFromRequest(req *http.Request) (*userContext, error) {
 	// step: check for a bearer token or cookie with jwt token
 	access, isBearer, err := getTokenInRequest(req, r.config.CookieAccessName)
 	if err != nil {
 		return nil, err
 	}
+
 	if r.config.EnableEncryptedToken || r.config.ForceEncryptedCookie && !isBearer {
 		if access, err = decodeText(access, r.config.EncryptionKey); err != nil {
 			return nil, ErrDecryption
 		}
 	}
+
+	return r.getIdentity(access, isBearer)
+}
+
+// getIdentity retrieves the user identity from an access token/cookie
+func (r *oauthProxy) getIdentity(access string, isBearer bool) (*userContext, error) {
+	var err error
+
 	token, err := jose.ParseJWT(access)
 	if err != nil {
 		return nil, err

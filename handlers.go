@@ -307,7 +307,7 @@ func (r *oauthProxy) logoutHandler(w http.ResponseWriter, req *http.Request) {
 	}
 
 	// @step: drop the access token
-	user, err := r.getIdentity(req)
+	user, err := r.getIdentityFromRequest(req)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
@@ -411,7 +411,7 @@ func (r *oauthProxy) logoutHandler(w http.ResponseWriter, req *http.Request) {
 
 // expirationHandler checks if the token has expired
 func (r *oauthProxy) expirationHandler(w http.ResponseWriter, req *http.Request) {
-	user, err := r.getIdentity(req)
+	user, err := r.getIdentityFromRequest(req)
 	if err != nil {
 		w.WriteHeader(http.StatusUnauthorized)
 		return
@@ -426,7 +426,7 @@ func (r *oauthProxy) expirationHandler(w http.ResponseWriter, req *http.Request)
 
 // tokenHandler display access token to screen
 func (r *oauthProxy) tokenHandler(w http.ResponseWriter, req *http.Request) {
-	user, err := r.getIdentity(req)
+	user, err := r.getIdentityFromRequest(req)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
